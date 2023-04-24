@@ -4,6 +4,8 @@ import requests
 from telegram.ext import Application, CommandHandler, ConversationHandler, MessageHandler, filters
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 
+import matplotlib.pyplot as plt
+
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG
 )
@@ -23,6 +25,7 @@ markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
 
 currencies = []
 date_for_old_currency = ''
+dates_for_graph_currency = []
 
 
 async def start(update, context):
@@ -43,6 +46,9 @@ async def help_command(update, context):
 /currency - предлагает пользователю посмотреть нынешние курсы валют, которых пользователь выбирает сам
 /stop_currency - прекращает работу команды /currency
 /old_currency (date) - предлагает пользователю посмотреть старые курсы валют, которые были в указанной дате
+/stop_old_currency - прекращает работу команды old_currency
+/graph_currency (start_date, end_date) - отправляет график изменения курса выбранных валют
+/stop_graph_currency - прекращает работу команды /graph_currency
 /info - предлагает пользователю просмотреть подробную информацию про ту или иную валюту
 /stop_info - прекращает работу команды /info""")
 
@@ -76,10 +82,9 @@ async def rate2(update, context):
     url = f"https://api.apilayer.com/currency_data/live?source={currencies[0]}&currencies={','.join(currencies)}"
     payload = {}
     headers = {
-        "apikey": "bWCo1GDCRk3PtzjhsYfWByAgOahFqzyV"
+        "apikey": api
     }
     response = requests.request("GET", url, headers=headers, data=payload)
-    print(response)
     if response:
         json_form = response.json()
         await update.message.reply_text(f"""1 {currencies[0]} = {json_form["quotes"][''.join(currencies)]} {currencies[1]}. 
@@ -136,10 +141,9 @@ async def old_rate2(update, context):
           f"currencies={','.join(currencies)}"
     payload = {}
     headers = {
-        "apikey": "bWCo1GDCRk3PtzjhsYfWByAgOahFqzyV"
+        "apikey": api
     }
     response = requests.request("GET", url, headers=headers, data=payload)
-    print(response)
     if response:
         json_form = response.json()
         await update.message.reply_text(f"""1 {currencies[0]} = {json_form["quotes"][''.join(currencies)]} {currencies[1]}. 
@@ -150,7 +154,80 @@ async def old_rate2(update, context):
 
 async def stop_old_currency(update, context):
     """Останавливает работу функции /old_currency"""
-    await update.message.reply_text("""Если вы хотите узнать курсы других валют, воспользуйтесь командой /old_currency""",
+    await update.message.reply_text("""Если вы хотите узнать курсы других валют в прошлом, воспользуйтесь командой /old_currency""",
+                                    reply_markup=ReplyKeyboardRemove())
+    return ConversationHandler.END
+
+
+async def graph_currency(update, context):
+    """Дает возможность выбора пары валюты для того, чтобы узнать курс валют в прошлом"""
+    await update.message.reply_text(
+        "Введите дату начала в формате YYYY-MM-DD"
+    )
+    return 1
+
+
+async def date1(update, context):
+    """Дает возможность ввести дату, если пользователь хочет узнать курсы валют в прошлом"""
+    global dates_for_graph_currency
+    dates_for_graph_currency.append(update.message.text)
+    await update.message.reply_text(
+        "Введите дату окончания в формате YYYY-MM-DD"
+    )
+    return 2
+
+
+async def date2(update, context):
+    """Дает возможность ввести дату, если пользователь хочет узнать курсы валют в прошлом"""
+    global dates_for_graph_currency
+    dates_for_graph_currency.append(update.message.text)
+    await update.message.reply_text(
+        "Выберите валюту, взятую за единицу",
+        reply_markup=markup
+    )
+    return 3
+
+
+async def graph_rate1(update, context):
+    """Дает возможность выбрать валюты"""
+    global currencies
+    cur = update.message.text
+    currencies.append(cur)
+    await update.message.reply_text(
+        "Выберите вторую валюту",
+        reply_markup=markup
+    )
+    return 4
+
+
+async def graph_rate2(update, context):
+    """Отправляет курс выбранных валют в прошлом"""
+    global currencies
+    cur = update.message.text
+    currencies.append(cur)
+    url = f"https://api.apilayer.com/currency_data/timeframe?start_date={dates_for_graph_currency[0]}&" \
+          f"end_date={dates_for_graph_currency[1]}&source={currencies[0]}&currencies={','.join(currencies)}"
+    payload = {}
+    headers = {
+        "apikey": api
+    }
+    response = requests.request("GET", url, headers=headers, data=payload)
+    if response:
+        json_form = response.json()
+        x = [i + 1 for i in range(len(json_form['quotes'].values()))]
+        y = [i[''.join(currencies)] for i in json_form["quotes"].values()]
+        fig, ax = plt.subplots()
+        ax.plot(x, y)
+        fig.savefig('./graphs/graph.png')
+        await context.bot.send_photo(chat_id=update.message.chat_id, photo=open('./graphs/graph.png', 'rb'))
+        await update.message.reply_text(f"""Если вы хотите узнать курсы других валют в виде графика, воспользуйтесь командой /graph_currency""",
+                                        reply_markup=ReplyKeyboardRemove())
+        return ConversationHandler.END
+
+
+async def stop_graph_currency(update, context):
+    """Останавливает работу функции /old_currency"""
+    await update.message.reply_text("""Если вы хотите узнать курсы других валют в прошлом, воспользуйтесь командой /old_currency""",
                                     reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
@@ -183,7 +260,7 @@ async def stop_info(update, context):
 
 
 def main():
-    application = Application.builder().token("6259271206:AAGdgculZMiM_xWL7-3U_czR2WFiulzZWCY").build()
+    application = Application.builder().token(TOKEN).build()
 
     conv_handler_for_currency = ConversationHandler(
         entry_points=[CommandHandler('currency', currency)],
@@ -208,6 +285,19 @@ def main():
         fallbacks=[CommandHandler('stop_old_currency', stop_old_currency)]
     )
 
+    conv_handler_for_graph_currency = ConversationHandler(
+        entry_points=[CommandHandler('graph_currency', graph_currency)],
+
+        states={
+            1: [MessageHandler(filters.TEXT & ~filters.COMMAND, date1)],
+            2: [MessageHandler(filters.TEXT & ~filters.COMMAND, date2)],
+            3: [MessageHandler(filters.TEXT & ~filters.COMMAND, graph_rate1)],
+            4: [MessageHandler(filters.TEXT & ~filters.COMMAND, graph_rate2)]
+        },
+
+        fallbacks=[CommandHandler('stop_graph_currency', stop_graph_currency)]
+    )
+
     conv_handler_for_info = ConversationHandler(
         entry_points=[CommandHandler('info', info)],
 
@@ -222,6 +312,7 @@ def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(conv_handler_for_currency)
     application.add_handler(conv_handler_for_old_currency)
+    application.add_handler(conv_handler_for_graph_currency)
     application.add_handler(conv_handler_for_info)
 
     application.run_polling()

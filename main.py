@@ -32,9 +32,9 @@ async def start(update, context):
     """Отправляет сообщение когда получена команда /start"""
     user = update.effective_user
     await update.message.reply_html(
-        rf"Привет {user.mention_html()}! Я бот, отслеживающий курсы валют, таких как рубль, американский доллар, евро," 
-        "юань, иена, шведская крона, швейцарский франк, канадский доллар, австралийский доллар. Введите команду /help,"
-        "чтобы посмотреть все возможные команды, предоставляемые ботом",
+        rf"Привет {user.mention_html()}! Я бот, отслеживающий курсы валют, таких как российский рубль, "
+        "доллар США, евро, юань, иена, шведская крона, швейцарский франк, канадский доллар, "
+        "австралийский доллар. Введите команду /help, чтобы посмотреть все возможные команды, предоставляемые ботом",
     )
 
 
@@ -147,7 +147,7 @@ async def old_rate2(update, context):
     if response:
         json_form = response.json()
         await update.message.reply_text(f"""1 {currencies[0]} = {json_form["quotes"][''.join(currencies)]} {currencies[1]}. 
-        \n \n Если вы хотите узнать курсы других валют, воспользуйтесь командой /currency""",
+        \n \n Если вы хотите узнать курсы других валют в прошлом, воспользуйтесь командой /old_currency""",
                                         reply_markup=ReplyKeyboardRemove())
         return ConversationHandler.END
 
@@ -220,14 +220,14 @@ async def graph_rate2(update, context):
         ax.plot(x, y)
         fig.savefig('./graphs/graph.png')
         await context.bot.send_photo(chat_id=update.message.chat_id, photo=open('./graphs/graph.png', 'rb'))
-        await update.message.reply_text(f"""Если вы хотите узнать курсы других валют в виде графика, воспользуйтесь командой /graph_currency""",
+        await update.message.reply_text(f"""Если вы хотите проанализировать курсы других валют, воспользуйтесь командой /graph_currency""",
                                         reply_markup=ReplyKeyboardRemove())
         return ConversationHandler.END
 
 
 async def stop_graph_currency(update, context):
     """Останавливает работу функции /old_currency"""
-    await update.message.reply_text("""Если вы хотите узнать курсы других валют в прошлом, воспользуйтесь командой /old_currency""",
+    await update.message.reply_text("""Если вы хотите проанализировать курсы других валют, воспользуйтесь командой /graph_currency""",
                                     reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
